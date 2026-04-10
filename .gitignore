@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Downloaded on first run (MediaPipe Tasks)
+src/gymcv/pose/models/*.task
+

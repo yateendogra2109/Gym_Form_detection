@@ -1,0 +1,2 @@
+"""Smart Gym CV package."""
+
