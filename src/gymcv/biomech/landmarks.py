@@ -26,9 +26,6 @@ EXERCISE_JOINTS = {
         "right": ("RIGHT_SHOULDER", "RIGHT_ELBOW", "RIGHT_WRIST"),
     },
     "shoulder_press": {
-        # HIP → SHOULDER → ELBOW: measures shoulder elevation (arm lifted overhead).
-        # Arms at sides ≈ 20-30°; fully pressed overhead ≈ 155-170°.
-        # This is completely different from the elbow angle used for bicep_curl.
         "left": ("LEFT_HIP", "LEFT_SHOULDER", "LEFT_ELBOW"),
         "right": ("RIGHT_HIP", "RIGHT_SHOULDER", "RIGHT_ELBOW"),
     },
@@ -63,8 +60,7 @@ def compute_exercise_angles(
         Minimum landmark visibility for the main (rep-counting) angle.
     symmetry_visibility_threshold:
         Threshold for left/right symmetry angles. Defaults to 0.0 so that
-        both sides are always computed from any detected landmark — this
-        ensures the asymmetry scorer always gets real numbers to compare.
+        both sides are always computed from any detected landmark.
     """
     joints = EXERCISE_JOINTS[exercise]
 
@@ -73,7 +69,11 @@ def compute_exercise_angles(
         ids = [landmark_enum[name].value for name in names]
         if not all(_visible(landmarks, i, threshold) for i in ids):
             return None
-        return calculate_angle_2d(_point(landmarks, ids[0]), _point(landmarks, ids[1]), _point(landmarks, ids[2]))
+        return calculate_angle_2d(
+            _point(landmarks, ids[0]),
+            _point(landmarks, ids[1]),
+            _point(landmarks, ids[2]),
+        )
 
     # Main angle – strict threshold keeps rep counting reliable.
     left_strict = side_angle("left", visibility_threshold)
@@ -86,7 +86,14 @@ def compute_exercise_angles(
     left_sym = side_angle("left", symmetry_visibility_threshold)
     right_sym = side_angle("right", symmetry_visibility_threshold)
 
+    if left_sym is None or right_sym is None:
+        return AngleReading(main_angle=main, left_angle=None, right_angle=None)
+
+    # ✅ FIXED: Only discard if readings are EXACTLY equal (means same landmark
+    # was used for both sides — a detection bug). Do NOT discard near-equal
+    # readings; those are valid low-asymmetry reps that must be reported as ~0.
+    if left_sym == right_sym:
+        left_sym = None
+        right_sym = None
+
     return AngleReading(main_angle=main, left_angle=left_sym, right_angle=right_sym)
-
-
-

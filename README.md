@@ -14,6 +14,8 @@ Real-time CV gym assistant with:
 ### WSL or Linux (bash)
 
 ```bash
+
+
 cd /path/to/CV_project
 python3 -m venv .venv
 source .venv/bin/activate
