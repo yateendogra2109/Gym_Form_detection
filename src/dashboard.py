@@ -79,8 +79,9 @@ def render_live_tab(db_path: str) -> None:
         ]
         popen_kwargs: dict = {"cwd": str(_PROJ_ROOT)}
         if sys.platform == "win32":
-            # Extra console so import/runtime errors (e.g. wrong mediapipe) are visible.
-            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            popen_kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
 
         try:
             subprocess.Popen(cmd, **popen_kwargs)

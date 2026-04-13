@@ -2,23 +2,27 @@ from __future__ import annotations
 
 
 class AsymmetryScorer:
-    """Simple left-right angle asymmetry detector.
+    def __init__(self, alert_threshold: float = 20.0) -> None:
+        self.alert_threshold = alert_threshold
+        self.prev_score = None
 
-    score = abs(left_angle - right_angle) in degrees.
-      - 0   → perfect symmetry (identical on both sides)
-      - high → large asymmetry
-
-    alert fires when score exceeds alert_threshold_deg.
-    """
-
-    def __init__(self, alert_threshold_deg: float = 15.0) -> None:
-        self.alert_threshold_deg = alert_threshold_deg
-
-    def score(self, left_angle: float | None, right_angle: float | None) -> tuple[float | None, bool]:
+    def score(self, left_angle: float | None, right_angle: float | None):
         if left_angle is None or right_angle is None:
             return None, False
+
         diff = abs(left_angle - right_angle)
-        alert = diff > self.alert_threshold_deg
-        return diff, alert
 
+        # ✅ Use raw difference (degrees)
+        score = diff
 
+        # ✅ Light smoothing
+        if self.prev_score is None:
+            smoothed = score
+        else:
+            smoothed = 0.6 * self.prev_score + 0.4 * score
+
+        self.prev_score = smoothed
+
+        alert = smoothed > self.alert_threshold
+
+        return smoothed, alert

@@ -65,6 +65,8 @@ def run_live_session(exercise_name: str, source: int | str, db_path: str) -> int
     prev_main_angle = None
     fatigue_events = 0
     rep_asym_scores: list[float] = []
+
+    # ✅ FIX: Use None as initial value so overlay shows "--" until real data arrives
     last_asym_score: float | None = None
     last_fatigue = False
     last_rep_score = 0.0
@@ -84,7 +86,11 @@ def run_live_session(exercise_name: str, source: int | str, db_path: str) -> int
         if lm is not None and lm.landmark is not None:
             landmarks = lm.landmark
             reading = compute_exercise_angles(
-                landmarks, pose.landmarks_enum.__members__, exercise_name, cfg.visibility_threshold
+                landmarks,
+                pose.landmarks_enum.__members__,
+                exercise_name,
+                cfg.visibility_threshold,
+                symmetry_visibility_threshold=0.0,  # ✅ always relaxed for asymmetry
             )
             if reading is not None:
                 if prev_main_angle is None:
@@ -97,9 +103,15 @@ def run_live_session(exercise_name: str, source: int | str, db_path: str) -> int
                 fatigue_detector.update_frame(smoothed_angle, displacement, rep_counter.in_concentric)
 
                 if cfg.symmetry_enabled:
-                    last_asym_score, asym_alert = asymmetry.score(reading.left_angle, reading.right_angle)
-                else:
-                    last_asym_score, asym_alert = (None, False)
+                    score, asym_alert = asymmetry.score(reading.left_angle, reading.right_angle)
+
+                    # ✅ FIX: Only update when we get a real value.
+                    # Do NOT fall back to 0.0 — keep last valid reading instead.
+                    if score is not None:
+                        last_asym_score = score
+                        last_asym_alert = asym_alert
+                    # If score is None (landmark not visible this frame), hold
+                    # last_asym_score and last_asym_alert from previous frame.
 
                 if rep_completed:
                     last_fatigue, rom, velocity = fatigue_detector.close_rep()
@@ -123,15 +135,11 @@ def run_live_session(exercise_name: str, source: int | str, db_path: str) -> int
                         velocity=velocity,
                         xp_gained=xp_gained,
                     )
-                # Update last_asym_alert directly from scorer output.
-                # The scorer has sticky hold logic — it returns True for ~15
-                # frames after the last trigger, so last_asym_alert stays
-                # True long enough to be visible even during landmark flicker.
-                last_asym_alert = asym_alert
 
         current_time = time.time()
         fps = 1.0 / max(current_time - prev_time, 1e-6)
         prev_time = current_time
+
         display_frame = draw_stats(
             frame,
             rep_counter.count,
@@ -145,7 +153,7 @@ def run_live_session(exercise_name: str, source: int | str, db_path: str) -> int
             game.xp,
             last_asym_alert,
         )
-        cv2.imshow("Smart Gym — Live", display_frame)
+        cv2.imshow("Smart Gym Live", display_frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 

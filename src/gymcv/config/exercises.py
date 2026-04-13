@@ -18,12 +18,8 @@ class ExerciseConfig:
     symmetry_enabled: bool
     fatigue_rom_drop_pct: float = 0.15
     fatigue_velocity_drop_pct: float = 0.20
-    # Guard rails: if the peak angle during a rep EXCEEDS max_angle_guard the rep is
-    # rejected (prevents shoulder-press ROM from triggering lateral-raise counts).
-    # If the peak angle NEVER reaches min_angle_guard the rep is also rejected
-    # (prevents small drifts from triggering exercises that need large ROM).
-    max_angle_guard: float | None = None  # cap: discard rep if peak > this
-    min_angle_guard: float | None = None  # floor: discard rep if peak < this
+    max_angle_guard: float | None = None
+    min_angle_guard: float | None = None
 
 
 SUPPORTED_EXERCISES: dict[str, ExerciseConfig] = {
@@ -38,7 +34,7 @@ SUPPORTED_EXERCISES: dict[str, ExerciseConfig] = {
         ideal_bottom_max=175.0,
         ideal_top_min=35.0,
         ideal_top_max=70.0,
-        symmetry_enabled=False,
+        symmetry_enabled=True,   # ✅ FIXED: was False — asymmetry block was never entered
     ),
     "squat": ExerciseConfig(
         name="squat",
@@ -64,16 +60,13 @@ SUPPORTED_EXERCISES: dict[str, ExerciseConfig] = {
         ideal_bottom_max=100.0,
         ideal_top_min=150.0,
         ideal_top_max=180.0,
-        symmetry_enabled=False,
+        symmetry_enabled=True,   # ✅ FIXED: was False — push-ups are bilateral, asymmetry matters
     ),
     "shoulder_press": ExerciseConfig(
-        # Angle = HIP→SHOULDER→ELBOW (shoulder elevation).
-        # Arms at sides (rest) ≈ 20-30°; fully pressed overhead ≈ 155-170°.
-        # FSM: 'up' when smoothed >= top_angle (arm overhead), 'down' when <= bottom_angle.
         name="shoulder_press",
         primary_side="right",
-        top_angle=140.0,      # arm is 'up' (overhead) when angle >= 140°
-        bottom_angle=50.0,    # arm is 'down' (at sides) when angle <= 50°
+        top_angle=140.0,
+        bottom_angle=50.0,
         smoothing_window=5,
         visibility_threshold=0.5,
         ideal_bottom_min=15.0,
@@ -81,21 +74,13 @@ SUPPORTED_EXERCISES: dict[str, ExerciseConfig] = {
         ideal_top_min=140.0,
         ideal_top_max=180.0,
         symmetry_enabled=True,
-        # Must reach at least 130° to confirm arm went overhead (blocks bicep curl drift).
         min_angle_guard=130.0,
     ),
     "lateral_raise": ExerciseConfig(
-        # Angle = HIP→SHOULDER→ELBOW (arm elevation from torso side).
-        # Arm at sides (rest) ≈ 15-30°;  arm raised to horizontal ≈ 85-100°.
-        # Lateral raises NEVER go overhead (>120°) — unlike shoulder press.
-        # FSM uses inverted semantics here:
-        #   'up'   = small angle (arm back at side, ≤ top_angle=30°)
-        #   'down' = large angle (arm raised to horizontal, ≥ bottom_angle=75°)
-        # A rep is complete when we cycle: up→down→up.
         name="lateral_raise",
         primary_side="right",
-        top_angle=30.0,       # arm 'at rest' when angle <= 30° (arm at side)
-        bottom_angle=75.0,    # rep peaks when angle >= 75° (arm at horizontal)
+        top_angle=30.0,
+        bottom_angle=75.0,
         smoothing_window=5,
         visibility_threshold=0.5,
         ideal_bottom_min=70.0,
@@ -103,12 +88,10 @@ SUPPORTED_EXERCISES: dict[str, ExerciseConfig] = {
         ideal_top_min=10.0,
         ideal_top_max=35.0,
         symmetry_enabled=True,
-        # Discard rep if arm went above 120° — that's a shoulder press, not a lateral raise.
         max_angle_guard=120.0,
     ),
 }
 
-# Human-readable labels for Streamlit / overlays (stable order for dropdowns).
 EXERCISE_UI_ORDER: tuple[str, ...] = (
     "bicep_curl",
     "squat",
